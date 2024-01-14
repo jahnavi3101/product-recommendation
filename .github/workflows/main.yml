@@ -1,0 +1,50 @@
+from surprise import Dataset, Reader, KNNBasic
+from surprise.model_selection import cross_validate
+import pandas as pd
+
+# Sample data (user, item, rating)
+data = {
+    'user': ['User1', 'User1', 'User2', 'User2', 'User3'],
+    'item': ['ProductA', 'ProductB', 'ProductA', 'ProductC', 'ProductB'],
+    'rating': [5, 4, 3, 2, 5]
+}
+
+df = pd.DataFrame(data)
+
+# Setup Surprise dataset
+reader = Reader(rating_scale=(1, 5))
+dataset = Dataset.load_from_df(df[['user', 'item', 'rating']], reader)
+
+# Use user-based collaborative filtering
+sim_options = {
+    'name': 'cosine',
+    'user_based': True
+}
+
+# Build the collaborative filtering model
+model = KNNBasic(sim_options=sim_options)
+
+# Train the model
+trainset = dataset.build_full_trainset()
+model.fit(trainset)
+
+# Get product recommendations for a user
+def get_recommendations(user_id):
+    testset = trainset.build_anti_testset()
+    testset = filter(lambda x: x[0] == user_id, testset)
+    predictions = model.test(testset)
+    
+    recommendations = []
+    for uid, iid, _, est, _ in predictions:
+        recommendations.append((iid, est))
+    
+    recommendations.sort(key=lambda x: x[1], reverse=True)
+    return recommendations
+
+# Example usage
+user_id = 'User1'
+recommendations = get_recommendations(user_id)
+
+print(f"Top 3 recommendations for {user_id}:")
+for item, est_rating in recommendations[:3]:
+    print(f"Product: {item}, Estimated Rating: {est_rating}")
